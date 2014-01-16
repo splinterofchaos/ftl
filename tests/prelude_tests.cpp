@@ -136,6 +136,17 @@ test_set prelude_tests{
 
 				return g(2,4) == 2;
 			})
+		),
+		std::make_tuple(
+			std::string("overload[F,G]"),
+			std::function<bool()>([]() -> bool {
+				enum Results { INT, CHAR };
+				auto f = [](int){ return INT; };
+				auto g = [](char){ return CHAR; };
+				auto o = ftl::overload(f,g);
+
+				return o(1) == INT && o('c') == CHAR;
+			})
 		)
 	}
 };

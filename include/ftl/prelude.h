@@ -944,6 +944,36 @@ namespace ftl {
 	 */
 	const_;
 #endif
+
+	namespace _dtl {
+		// Inspired by http://cpp-next.com/archive/2012/09/unifying-generic-functions-and-function-objects/
+		template<typename _F, typename _G>
+		struct overload2 
+		: public functor_type<_F>::type
+		, public functor_type<_G>::type 
+		{
+			using F = typename functor_type<_F>::type;
+			using G = typename functor_type<_G>::type;
+
+			overload2( _F f, _G g ) 
+			: F(to_functor(std::move(f)))
+			, G(to_functor(std::move(g))) 
+			{}
+
+			using F::operator();
+			using G::operator();
+		};
+	}
+	
+	template<typename F, typename G>
+	_dtl::overload2<F,G> overload(F f, G g) {
+		return {std::move(f), std::move(g)};
+	}
+
+	template<typename F, typename G>
+	_dtl::overload2<F,G> overload(F f, G g) {
+		return {std::move(f), std::move(g)};
+	}
 }
 #endif
 
