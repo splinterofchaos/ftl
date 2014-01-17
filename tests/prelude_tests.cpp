@@ -146,15 +146,17 @@ test_set prelude_tests{
 		std::make_tuple(
 			std::string("overload[function...]"),
 			std::function<bool()>([]() -> bool {
-				enum Results { INT, CHAR, FLOAT };
+				enum Results { INT, CHAR, FLOAT, DOUBLE };
 				auto f = [](int){ return INT; };
 				auto g = [](char){ return CHAR; };
 				auto h = [](float){ return FLOAT; };
-				auto o = ftl::overload(f,g,h);
+				auto i = [](double){ return DOUBLE; };
+				auto o = ftl::overload(f,g,h,i);
 
 				return o(0) == INT 
 					&& o('c') == CHAR 
-					&& o(0.f) == FLOAT;
+					&& o(0.f) == FLOAT
+					&& o(0.0) == DOUBLE;
 			})
 		),
 		std::make_tuple(

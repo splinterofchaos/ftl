@@ -947,7 +947,6 @@ namespace ftl {
 
 	namespace _dtl {
 		// A function object that simply forwards its arguments.
-		// For arbitrary function objects, this version should work.
 		template<typename F>
 		struct forwarder : public F {
 
@@ -964,7 +963,7 @@ namespace ftl {
 
 			forwarder(F f) : f(f) {}
 
-			R operator()(Args...args) const {
+			R operator()(Args...args) {
 				return f(std::forward<Args>(args)...);
 			}
 		};
@@ -986,23 +985,33 @@ namespace ftl {
 			using F::operator();
 			using G::operator();
 		};
+
+		template<typename F, typename G>
+		overload2<F,G> make_overload2(F f, G g) {
+			return {std::move(f), std::move(g)};
+		}
 	}
 	
-	template<typename F, typename G>
-	_dtl::overload2<F,G> overload(F f, G g) {
-		return {std::move(f), std::move(g)};
-	}
+	constexpr struct _overload {
+		template<typename F, typename G>
+		using Result2 = _dtl::overload2<F,G>;
 
-	template<
-		typename F, typename G, typename...H,
-		typename O1 = _dtl::overload2<F,G>,
-		typename O2 = decltype(overload(std::declval<O1>(),std::declval<H>()...))>
-	O2 overload(F f, G g, H...h) {
-		return overload(
-			overload(std::move(f), std::move(g)),
-			std::move(h)...
-		);
-	}
+		template<typename F, typename G>
+		Result2<F,G> operator()(F f, G g) const {
+			return {std::move(f), std::move(g)};
+		}
+
+		template<
+			typename F, typename G, typename...H, 
+			typename O1=Result2<F,G>>
+		auto operator()(F f, G g, H...h) const
+		-> decltype((*this)(std::declval<O1>(),std::move(h)...)) {
+			return (*this)(
+				(*this)(std::move(f), std::move(g)),
+				std::move(h)...
+			);
+		}
+	} overload{};
 }
 #endif
 
