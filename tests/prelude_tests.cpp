@@ -28,6 +28,12 @@ int curry_me(int x, int y) {
 	return x+y;
 }
 
+constexpr int add1(int x){ return x+1; }
+std::string pop_front(std::string s) {
+	s.erase(s.begin());
+	return s;
+}
+
 // Test make_curried_n with arbitrarily large function.
 struct _curry5 : public ftl::make_curried_n<5,_curry5> {
     template<typename P1, typename P2, typename P3, typename P4, typename P5>
@@ -138,14 +144,26 @@ test_set prelude_tests{
 			})
 		),
 		std::make_tuple(
-			std::string("overload[F,G]"),
+			std::string("overload[function...]"),
 			std::function<bool()>([]() -> bool {
-				enum Results { INT, CHAR };
+				enum Results { INT, CHAR, FLOAT };
 				auto f = [](int){ return INT; };
 				auto g = [](char){ return CHAR; };
-				auto o = ftl::overload(f,g);
+				auto h = [](float){ return FLOAT; };
+				auto o = ftl::overload(f,g,h);
 
-				return o(1) == INT && o('c') == CHAR;
+				return o(0) == INT 
+					&& o('c') == CHAR 
+					&& o(0.f) == FLOAT;
+			})
+		),
+		std::make_tuple(
+			std::string("overload[R(*)(args...)...]"),
+			std::function<bool()>([]() -> bool {
+				enum Results { INT, CHAR, FLOAT };
+				auto o = ftl::overload(add1,pop_front);
+
+				return o(0) == 1 && o("abc") == "bc";
 			})
 		)
 	}

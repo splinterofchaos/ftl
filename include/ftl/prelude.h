@@ -946,18 +946,41 @@ namespace ftl {
 #endif
 
 	namespace _dtl {
+		// A function object that simply forwards its arguments.
+		// For arbitrary function objects, this version should work.
+		template<typename F>
+		struct forwarder : public F {
+
+			template<typename...Init>
+			forwarder(Init...init) : F(init...) {}
+
+			using F::operator();
+		};
+
+		template<typename R, typename...Args>
+		struct forwarder<R(*)(Args...)> {
+			using F = R(*)(Args...);
+			F f;
+
+			forwarder(F f) : f(f) {}
+
+			R operator()(Args...args) const {
+				return f(std::forward<Args>(args)...);
+			}
+		};
+
 		// Inspired by http://cpp-next.com/archive/2012/09/unifying-generic-functions-and-function-objects/
 		template<typename _F, typename _G>
 		struct overload2 
-		: public functor_type<_F>::type
-		, public functor_type<_G>::type 
+		: forwarder<_F>
+		, forwarder<_G>
 		{
-			using F = typename functor_type<_F>::type;
-			using G = typename functor_type<_G>::type;
+			using F = forwarder<_F>;
+			using G = forwarder<_G>;
 
 			overload2( _F f, _G g ) 
-			: F(to_functor(std::move(f)))
-			, G(to_functor(std::move(g))) 
+			: F(std::move(f))
+			, G(std::move(g)) 
 			{}
 
 			using F::operator();
@@ -970,9 +993,15 @@ namespace ftl {
 		return {std::move(f), std::move(g)};
 	}
 
-	template<typename F, typename G>
-	_dtl::overload2<F,G> overload(F f, G g) {
-		return {std::move(f), std::move(g)};
+	template<
+		typename F, typename G, typename...H,
+		typename O1 = _dtl::overload2<F,G>,
+		typename O2 = decltype(overload(std::declval<O1>(),std::declval<H>()...))>
+	O2 overload(F f, G g, H...h) {
+		return overload(
+			overload(std::move(f), std::move(g)),
+			std::move(h)...
+		);
 	}
 }
 #endif
