@@ -31,14 +31,16 @@ test_set memory_tests{
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 				using sptr = std::shared_ptr<sum_monoid<int>>;
+				using uptr = std::unique_ptr<sum_monoid<int>>;
 
-				auto p = monoid<sptr>::id();
+				auto p1 = monoid<sptr>::id();
+				auto p2 = monoid<uptr>::id();
 
-				return p == nullptr;
+				return p1 == nullptr && p2 == nullptr;
 			})
 		),
 		std::make_tuple(
-			std::string("monoid::append"),
+			std::string("monoid::append (shared_ptr)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 				using sptr = std::shared_ptr<sum_monoid<int>>;
@@ -48,6 +50,23 @@ test_set memory_tests{
 				auto p3 = std::make_shared<sum_monoid<int>>(sum(2));
 
 				auto pr = p1 ^ p2 ^ p1 ^ p3 ^ p1;
+
+				return *pr == sum(4);
+			})
+		),
+		std::make_tuple(
+			std::string("monoid::append (unique_ptr)"),
+			std::function<bool()>([]() -> bool {
+				using namespace ftl;
+				using Sum = sum_monoid<int>;
+				using uptr = std::unique_ptr<Sum>;
+
+				auto p1 = monoid<uptr>::id();
+				auto p2 = uptr(new Sum(2));
+				auto p3 = uptr(new Sum(2));
+
+				// Parentheses used to force calling of every overload.
+				auto pr = ((p1 ^ p2) ^ p1) ^ (p1 ^ (p3 ^ p1));
 
 				return *pr == sum(4);
 			})

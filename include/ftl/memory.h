@@ -111,6 +111,136 @@ namespace ftl {
 	};
 
 	/**
+	 * Monoid instance for unique_ptr.
+	 *
+	 * Much like maybe, any shared_ptr that wraps a monoid is also a monoid.
+	 *
+	 * \ingroup memory
+	 */
+	template<typename T>
+	struct monoid<std::unique_ptr<T>> {
+		/// Simply creates an "empty" pointer.
+		static constexpr auto id() noexcept
+		-> typename std::enable_if<
+				monoid<T>::instance,
+				std::unique_ptr<T>>::type {
+			return std::unique_ptr<T>();
+		}
+
+	private:
+		/// Create a valued pointer (in lue of std::make_unique).
+		template<typename...Init>
+		static constexpr std::unique_ptr<T> make(Init&&...init) {
+			return std::unique_ptr<T>(new T(std::forward<Init>(init)...));
+		}
+
+		/// Duplicate a pointer. (unique_ptr's copy ctor is deleted.)
+		static constexpr std::unique_ptr<T> dup(const std::unique_ptr<T>& p) {
+			return make(*p);
+		}
+	public:
+
+		/**
+		 * Unwraps the values and applies their monoid op.
+		 *
+		 * If neither of the pointers point anywhere, another "empty" pointer
+		 * is returned.
+		 *
+		 * If both the pointers point to some object, then a new pointer with
+		 * the result of the monoid operation is created, unless a or b is an
+		 * rvalue.
+		 */		
+		static auto append(
+				const std::unique_ptr<T>& a,
+				const std::unique_ptr<T>& b)
+		-> typename std::enable_if<
+				monoid<T>::instance,
+				std::unique_ptr<T>>::type {
+			if(a) {
+				if(b) {
+					return make(monoid<T>::append(*a, *b));
+				}
+
+				else
+					return dup(a);
+			}
+
+			else {
+				if(b)
+					return dup(b);
+
+				else
+					return id();
+			}
+		}
+		static auto append(
+				std::unique_ptr<T>&& a,
+				const std::unique_ptr<T>& b)
+		-> typename std::enable_if<
+				monoid<T>::instance,
+				std::unique_ptr<T>>::type {
+			if(b) {
+				if(a) {
+					*a = monoid<T>::append(std::move(*a), *b);
+					return std::move(a);
+				}
+
+				else
+					return dup(b);
+			}
+
+			else {
+				// If a, return a, else id.
+				return std::move(a);
+			}
+		}
+
+		static auto append(
+				const std::unique_ptr<T>& a,
+				std::unique_ptr<T>&& b)
+		-> typename std::enable_if<
+				monoid<T>::instance,
+				std::unique_ptr<T>>::type {
+			if(a) {
+				if(b) {
+					*b = monoid<T>::append(*a, std::move(*b));
+					return std::move(b);
+				}
+				else
+					return dup(a);
+			}
+
+			else {
+				// If b, return b, else id.
+				return std::move(b); 
+			}
+		}
+
+		static auto append(
+				std::unique_ptr<T>&& a,
+				std::unique_ptr<T>&& b)
+		-> typename std::enable_if<
+				monoid<T>::instance,
+				std::unique_ptr<T>>::type {
+			if(a) {
+				if(b) 
+					*a = monoid<T>::append(std::move(*a), std::move(*b));
+
+				return std::move(a);
+			}
+
+			else {
+				// If b, return b, else id.
+				return std::move(b); 
+			}
+		}
+
+
+		/// \c shared_ptr is only a monoid instance if T is.
+		static constexpr bool instance = monoid<T>::instance;
+	};
+
+	/**
 	 * Monad instance of shared_ptr.
 	 *
 	 * \ingroup memory
