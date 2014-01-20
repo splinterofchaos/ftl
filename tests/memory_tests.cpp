@@ -76,10 +76,12 @@ test_set memory_tests{
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
-				auto p = std::make_shared<int>(3);
-				auto pr = [](int x){ return -x; } % p;
+				auto f = [](int x){ return -x; };
 
-				return *pr == -3;
+				auto spr = f % std::make_shared<int>(3);
+				auto upr = f % std::unique_ptr<int>(new int(3));
+
+				return *spr == -3 && *upr == -3;
 			})
 		),
 		std::make_tuple(
@@ -87,13 +89,14 @@ test_set memory_tests{
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
-				auto p = applicative<std::shared_ptr<int>>::pure(2);
+				auto sp = applicative<std::shared_ptr<int>>::pure(2);
+				auto up = applicative<std::unique_ptr<int>>::pure(2);
 
-				return *p == 2;
+				return *sp == 2 && *up == 2;
 			})
 		),
 		std::make_tuple(
-			std::string("applicative::apply[*,*]"),
+			std::string("applicative::apply[*,*] (shared)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
@@ -110,7 +113,27 @@ test_set memory_tests{
 			})
 		),
 		std::make_tuple(
-			std::string("applicative::apply[nullptr,*]"),
+			std::string("applicative::apply[*,*] (unique)"),
+			std::function<bool()>([]() -> bool {
+				using namespace ftl;
+
+				auto f = function<int(int,int)>(
+					[](int x, int y){ return x-y; }
+				);
+
+				auto p1 = applicative<std::unique_ptr<int>>::pure(2);
+				auto p2 = applicative<std::unique_ptr<int>>::pure(3);
+
+				std::unique_ptr<int> null = nullptr;
+
+				return *(f % p1 * p2) == -1 
+					&& (f % p1 * null) == nullptr
+					&& (f % null * p2) == nullptr
+					&& (f % null * null) == nullptr;
+			})
+		),
+		std::make_tuple(
+			std::string("applicative::apply[nullptr,*] (shared)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
@@ -127,7 +150,7 @@ test_set memory_tests{
 			})
 		),
 		std::make_tuple(
-			std::string("applicative::apply[*,nullptr]"),
+			std::string("applicative::apply[*,nullptr] (shared)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
@@ -144,7 +167,7 @@ test_set memory_tests{
 			})
 		),
 		std::make_tuple(
-			std::string("applicative::apply[nullptr,nullptr]"),
+			std::string("applicative::apply[nullptr,nullptr] (shared)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
@@ -210,6 +233,23 @@ test_set memory_tests{
 				auto pr = p >>= f;
 
 				return pr == nullptr;
+			})
+		),
+		std::make_tuple(
+			std::string("monad::bind[&,->&]"),
+			std::function<bool()>([]() -> bool {
+				using namespace ftl;
+
+				std::unique_ptr<int> null = nullptr;
+				auto p = std::unique_ptr<int>(new int(1));
+				auto f = [](int x) { 
+					return std::unique_ptr<float>(new float(float(x)/2.f)); 
+				};
+
+				return *(p >>= f) == .5f
+					// Test the rvalue overload.
+					&& *(std::unique_ptr<int>(new int(1)) >>= f) == .5f
+					&& (null >>= f) == nullptr;
 			})
 		),
 		std::make_tuple(

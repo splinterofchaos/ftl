@@ -277,6 +277,81 @@ namespace ftl {
 		static constexpr bool instance = true;
 	};
 
+	// The default Rebind will not update the second template parameter,
+	// std::default_delete, for std::unique_ptr correctly.
+	template<typename T>
+	struct parametric_type_traits<std::unique_ptr<T>> {
+
+		using value_type = T;
+
+		template<typename U>
+		using rebind = std::unique_ptr<U>;
+	};
+
+	/**
+	 * Monad instance of unique_ptr.
+	 *
+	 * \ingroup memory
+	 */
+	template<typename T>
+	struct monad<std::unique_ptr<T>>
+	: deriving_join<in_terms_of_bind<std::unique_ptr<T>>> {
+
+		static std::unique_ptr<T> pure(T&& a) {
+			return std::unique_ptr<T>(new T(std::move(a)));
+		}
+
+		template<typename F, typename U = result_of<F(T)>>
+		static std::unique_ptr<U> map(F f, const std::unique_ptr<T>& p) {
+			if(p)
+				return std::unique_ptr<U>(new U(f(std::move(*p))));
+
+			else
+				return std::unique_ptr<U>();
+		}
+
+		template<
+			typename F, 
+			typename U = result_of<F(T)>,
+			typename = Requires<std::is_same<T,U>::value>>
+		static std::unique_ptr<U> map(F f, std::unique_ptr<T>&& p) {
+			if(p)
+				*p = f(std::move(*p));
+			
+			return std::move(p);
+		}
+
+		template<
+				typename F,
+				typename U = typename result_of<F(T)>::element_type
+		>
+		static std::unique_ptr<U> bind(const std::unique_ptr<T>& a, F f) {
+			if(a)
+				return f(std::move(*a));
+
+			return std::unique_ptr<U>();
+		}
+
+		// apply must be specialized because its default implementation
+		// takes the second parameter by value, using std::unique_ptr's
+		// deleted constructor.
+		// TODO: Change the definition of deriving_apply<in_terms_of_bind<M>>.
+		template<typename F, typename U = result_of<F(T)>>
+		static std::unique_ptr<U> apply(const std::unique_ptr<F>& f, const std::unique_ptr<T>& ptr) {
+			return f ? (*f) % ptr : std::unique_ptr<U>();
+		}
+
+		template<typename F, typename = Requires<std::is_same<T,result_of<F(T)>>::value>>
+		static std::unique_ptr<T> apply(const std::unique_ptr<F>& f, std::unique_ptr<T>&& ptr) {
+			if( f )
+				*ptr = (*f) % ptr;
+
+			return std::move(ptr);
+		}
+
+		static constexpr bool instance = true;
+	};
+
 	/**
 	 * Foldable instance for shared_ptr
 	 *
