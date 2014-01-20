@@ -295,7 +295,8 @@ namespace ftl {
 	 */
 	template<typename T>
 	struct monad<std::unique_ptr<T>>
-	: deriving_join<in_terms_of_bind<std::unique_ptr<T>>> {
+	: deriving_join<in_terms_of_bind<std::unique_ptr<T>>> 
+	, deriving_apply<in_terms_of_bind<std::unique_ptr<T>>> {
 
 		static std::unique_ptr<T> pure(T&& a) {
 			return std::unique_ptr<T>(new T(std::move(a)));
@@ -330,23 +331,6 @@ namespace ftl {
 				return f(std::move(*a));
 
 			return std::unique_ptr<U>();
-		}
-
-		// apply must be specialized because its default implementation
-		// takes the second parameter by value, using std::unique_ptr's
-		// deleted constructor.
-		// TODO: Change the definition of deriving_apply<in_terms_of_bind<M>>.
-		template<typename F, typename U = result_of<F(T)>>
-		static std::unique_ptr<U> apply(const std::unique_ptr<F>& f, const std::unique_ptr<T>& ptr) {
-			return f ? (*f) % ptr : std::unique_ptr<U>();
-		}
-
-		template<typename F, typename = Requires<std::is_same<T,result_of<F(T)>>::value>>
-		static std::unique_ptr<T> apply(const std::unique_ptr<F>& f, std::unique_ptr<T>&& ptr) {
-			if( f )
-				*ptr = (*f) % ptr;
-
-			return std::move(ptr);
 		}
 
 		static constexpr bool instance = true;
