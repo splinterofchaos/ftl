@@ -241,7 +241,7 @@ test_set memory_tests{
 				using namespace ftl;
 
 				std::unique_ptr<int> null = nullptr;
-				auto p = std::unique_ptr<int>(new int(1));
+				std::unique_ptr<int> p(new int(1));
 				auto f = [](int x) { 
 					return std::unique_ptr<float>(new float(float(x)/2.f)); 
 				};
@@ -253,7 +253,7 @@ test_set memory_tests{
 			})
 		),
 		std::make_tuple(
-			std::string("foldable::foldl[&]"),
+			std::string("foldable::foldl[&] (shared)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
@@ -263,7 +263,7 @@ test_set memory_tests{
 			})
 		),
 		std::make_tuple(
-			std::string("foldable::foldl[nullptr]"),
+			std::string("foldable::foldl[nullptr] (shared)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
@@ -273,7 +273,20 @@ test_set memory_tests{
 			})
 		),
 		std::make_tuple(
-			std::string("foldable::foldr[&]"),
+			std::string("foldable::foldl[&] (unique)"),
+			std::function<bool()>([]() -> bool {
+				using namespace ftl;
+
+				auto p = std::unique_ptr<int>(new int(2));
+				auto null = std::unique_ptr<int>();
+				auto f = [](int x, int y){ return x+y; };
+
+				return foldl(f, 1, p) == 3
+					&& foldl(f, 1, null) == 1;
+			})
+		),
+		std::make_tuple(
+			std::string("foldable::foldr[&] (shared)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
@@ -283,13 +296,26 @@ test_set memory_tests{
 			})
 		),
 		std::make_tuple(
-			std::string("foldable::foldr[nullptr]"),
+			std::string("foldable::foldr[nullptr] (shared)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
 				std::shared_ptr<int> p{};
 
 				return foldr([](int x, int y){ return x+y; }, 1, p) == 1;
+			})
+		),
+		std::make_tuple(
+			std::string("foldable::foldr[&] (unique)"),
+			std::function<bool()>([]() -> bool {
+				using namespace ftl;
+
+				std::unique_ptr<int> p(new int(2));
+				std::unique_ptr<int> null{};
+				auto f = [](int x, int y){ return x+y; };
+
+				return foldr(f, 1, p) == 3
+					&& foldr(f, 1, null) == 1;
 			})
 		)
 	}

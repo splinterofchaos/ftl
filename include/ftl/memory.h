@@ -372,6 +372,43 @@ namespace ftl {
 
 		static constexpr bool instance = true;
 	};
+
+	/**
+	 * Foldable instance for unique_ptr
+	 *
+	 * \ingroup memory
+	 */
+	template<typename T>
+	struct foldable<std::unique_ptr<T>>
+	: deriving_foldMap<std::unique_ptr<T>>, deriving_fold<std::unique_ptr<T>> {
+		template<
+				typename Fn,
+				typename U,
+				typename = Requires<std::is_same<U, result_of<Fn(U,T)>>::value>
+		>
+		static U foldl(Fn&& fn, U&& z, const std::unique_ptr<T>& p) {
+			if(p) {
+				return fn(std::forward<U>(z), *p);
+			}
+
+			return z;
+		}
+
+		template<
+				typename Fn,
+				typename U,
+				typename = Requires<std::is_same<U, result_of<Fn(T,U)>>::value>
+				>
+		static U foldr(Fn&& fn, U&& z, const std::unique_ptr<T>& p) {
+			if(p) {
+				return fn(std::forward<U>(z), *p);
+			}
+
+			return z;
+		}
+
+		static constexpr bool instance = true;
+	};
 }
 
 #endif
