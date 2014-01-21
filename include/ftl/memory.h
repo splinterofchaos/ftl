@@ -173,6 +173,7 @@ namespace ftl {
 					return id();
 			}
 		}
+
 		static auto append(
 				std::unique_ptr<T>&& a,
 				const std::unique_ptr<T>& b)
@@ -234,7 +235,6 @@ namespace ftl {
 				return std::move(b); 
 			}
 		}
-
 
 		/// \c shared_ptr is only a monoid instance if T is.
 		static constexpr bool instance = monoid<T>::instance;
