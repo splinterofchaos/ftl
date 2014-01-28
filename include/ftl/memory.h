@@ -62,10 +62,7 @@ namespace ftl {
 	template<typename T>
 	struct monoid<std::shared_ptr<T>> {
 		/// Simply creates an "empty" pointer.
-		static constexpr auto id() noexcept
-		-> typename std::enable_if<
-				monoid<T>::instance,
-				std::shared_ptr<T>>::type {
+		static constexpr std::shared_ptr<T> id() noexcept {
 			return std::shared_ptr<T>();
 		}
 
@@ -83,12 +80,9 @@ namespace ftl {
 		 * \c make_shared is invoked to create a new object that is the result
 		 * of applying the monoid operation on the two values.
 		 */
-		static auto append(
+		static std::shared_ptr<T> append(
 				std::shared_ptr<T> a,
-				std::shared_ptr<T> b)
-		-> typename std::enable_if<
-				monoid<T>::instance,
-				std::shared_ptr<T>>::type {
+				std::shared_ptr<T> b) {
 			if(a && b)
 				return std::make_shared<T>(monoid<T>::append(*a,*b));
 
@@ -103,6 +97,9 @@ namespace ftl {
 
 		/// \c shared_ptr is only a monoid instance if T is.
 		static constexpr bool instance = monoid<T>::instance;
+
+		static_assert(instance, "std::shared_ptr<T> is not a monoid "
+		                        "instance if T is not." );
 	};
 
 	/**
@@ -115,10 +112,7 @@ namespace ftl {
 	template<typename T>
 	struct monoid<std::unique_ptr<T>> {
 		/// Simply creates an "empty" pointer.
-		static constexpr auto id() noexcept
-		-> typename std::enable_if<
-				monoid<T>::instance,
-				std::unique_ptr<T>>::type {
+		static constexpr std::unique_ptr<T> id() noexcept {
 			return std::unique_ptr<T>();
 		}
 
@@ -144,24 +138,18 @@ namespace ftl {
 		 * the result of the monoid operation is created, unless a or b is an
 		 * rvalue.
 		 */		
-		static auto append(
+		static std::unique_ptr<T> append(
 				const std::unique_ptr<T>& a,
-				const std::unique_ptr<T>& b)
-		-> typename std::enable_if<
-				monoid<T>::instance,
-				std::unique_ptr<T>>::type {
+				const std::unique_ptr<T>& b) {
 			if(a && b) return make(monoid<T>::append(*a, *b));
 			else if(a) return dup(a);
 			else if(b) return dup(b);
 			return id();
 		}
 
-		static auto append(
+		static std::unique_ptr<T> append(
 				std::unique_ptr<T>&& a,
-				const std::unique_ptr<T>& b)
-		-> typename std::enable_if<
-				monoid<T>::instance,
-				std::unique_ptr<T>>::type {
+				const std::unique_ptr<T>& b) {
 			if(a && b) {
 				*a = monoid<T>::append(std::move(*a), *b);
 				return std::move(a);
@@ -174,12 +162,9 @@ namespace ftl {
 			return std::move(a);
 		}
 
-		static auto append(
+		static std::unique_ptr<T> append(
 				const std::unique_ptr<T>& a,
-				std::unique_ptr<T>&& b)
-		-> typename std::enable_if<
-				monoid<T>::instance,
-				std::unique_ptr<T>>::type {
+				std::unique_ptr<T>&& b) {
 			if(a && b) {
 				*b = monoid<T>::append(*a, std::move(*b));
 				return std::move(b);
@@ -192,12 +177,9 @@ namespace ftl {
 				return std::move(b);
 		}
 
-		static auto append(
+		static std::unique_ptr<T> append(
 				std::unique_ptr<T>&& a,
-				std::unique_ptr<T>&& b)
-		-> typename std::enable_if<
-				monoid<T>::instance,
-				std::unique_ptr<T>>::type {
+				std::unique_ptr<T>&& b) {
 			if(a && b) {
 				*a = monoid<T>::append(std::move(*a), std::move(*b));
 				return std::move(a);
@@ -210,8 +192,11 @@ namespace ftl {
 				return std::move(b);
 		}
 
-		/// \c shared_ptr is only a monoid instance if T is.
+		/// \c unique_ptr is only a monoid instance if T is.
 		static constexpr bool instance = monoid<T>::instance;
+
+		static_assert(instance, "std::unique_ptr<T> is not a monoid "
+		                        "instance if T is not.");
 	};
 
 	/**
