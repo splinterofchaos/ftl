@@ -184,6 +184,43 @@ test_set memory_tests{
 			})
 		),
 		std::make_tuple(
+			std::string("monoidA::fail"),
+			std::function<bool()>([]() -> bool {
+				using namespace ftl;
+				using sptr = std::shared_ptr<int>;
+				using uptr = std::unique_ptr<int>;
+
+				auto p1 = monoidA<sptr>::fail();
+				auto p2 = monoidA<uptr>::fail();
+
+				return p1 == nullptr && p2 == nullptr;
+			})
+		),
+		std::make_tuple(
+			std::string("monoidA::orDo"),
+			std::function<bool()>([]() -> bool {
+				using namespace ftl;
+				using sptr = std::shared_ptr<int>;
+				using uptr = std::unique_ptr<int>;
+
+				sptr sp(new int(1));
+				sptr sp2(new int(2));
+				uptr up(new int(1));
+				uptr up2(new int(2));
+				bool shared_works = 
+					   (sptr() | sptr()) == nullptr
+					&& (sp | sptr()) == sp
+					&& (sptr() | sp) == sp
+					&& (sp | sp2)    == sp;
+				bool unique_works = 
+					   (uptr() | uptr()) == nullptr
+					&& *(up | uptr()) == *up
+					&& *(uptr() | up) == *up
+					&& *(up | up2)    == *up;
+				return shared_works and unique_works;
+			})
+		),
+		std::make_tuple(
 			std::string("monad::bind[&,->&]"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;

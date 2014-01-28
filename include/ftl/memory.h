@@ -295,6 +295,62 @@ namespace ftl {
 		static constexpr bool instance = true;
 	};
 
+	/** 
+	 * MonoidA instance for shared_ptr
+	 *
+	 * \ingroup memory
+	 */
+	template<typename T>
+	struct monoidA<std::shared_ptr<T>> {
+		static std::shared_ptr<T> fail() {
+			return nullptr;
+		}
+
+		static std::shared_ptr<T> orDo(
+			std::shared_ptr<T> a, 
+			std::shared_ptr<T> b) {
+			return a ? std::move(a) : std::move(b);
+		}
+	
+		static constexpr bool instance = true;
+	};
+
+	namespace _dtl {
+		// In lue of std::make_unique.
+		template<typename T, typename...Init>
+		std::unique_ptr<T> make_unique(Init&&...init) {
+			return new T(std::forward<Init>(init)...);
+		}
+
+		template<typename T>
+		std::unique_ptr<T> dup_unique(const std::unique_ptr<T>& ptr) {
+			return std::unique_ptr<T>(
+				ptr ? new T(*ptr) : (T*)nullptr
+			);
+		}
+			
+	}
+
+	/**
+	 * MonoidA instance for unique_ptr
+	 *
+	 * \ingroup memory
+	 **/
+	template<typename T>
+	struct monoidA<std::unique_ptr<T>> {
+		static std::unique_ptr<T> fail() {
+			return nullptr;
+		}
+
+		static std::unique_ptr<T> orDo(
+			const std::unique_ptr<T>& a,
+			const std::unique_ptr<T>& b) {
+			return a ? _dtl::dup_unique(a) : _dtl::dup_unique(b);
+		}
+
+		static constexpr bool instance = true;
+	};
+
 	/**
 	 * Foldable instance for shared_ptr
 	 *
