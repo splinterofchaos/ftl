@@ -30,6 +30,26 @@
 
 namespace ftl {
 
+	namespace _dtl {
+		/// In lue of std::make_unique.
+		template<
+			typename T, 
+			typename Ptr = std::unique_ptr<T>,
+			typename...Init>
+		Ptr make_unique(Init&&...init) {
+			return Ptr(new T(std::forward<Init>(init)...));
+		}
+
+		/// Because unique_ptr's copy constructor is deleted.
+		template<typename T>
+		std::unique_ptr<T> dup_unique(const std::unique_ptr<T>& ptr) {
+			return std::unique_ptr<T>(
+				ptr ? new T(*ptr) : (T*)nullptr
+			);
+		}
+			
+	}
+
 	/**
 	 * \defgroup memory Memory
 	 *
@@ -51,6 +71,65 @@ namespace ftl {
 	 * - \ref monad
 	 * - \ref foldable
 	 */
+
+	/** 
+	 * MonoidA instance for shared_ptr
+	 *
+	 * \ingroup memory
+	 */
+	template<typename T>
+	struct monoidA<std::shared_ptr<T>> {
+		static std::shared_ptr<T> fail() {
+			return nullptr;
+		}
+
+		static std::shared_ptr<T> orDo(
+			std::shared_ptr<T> a, 
+			std::shared_ptr<T> b) {
+			return a ? std::move(a) : std::move(b);
+		}
+	
+		static constexpr bool instance = true;
+	};
+
+	/**
+	 * MonoidA instance for unique_ptr
+	 *
+	 * \ingroup memory
+	 **/
+	template<typename T>
+	struct monoidA<std::unique_ptr<T>> {
+		static std::unique_ptr<T> fail() {
+			return nullptr;
+		}
+
+		static std::unique_ptr<T> orDo(
+			const std::unique_ptr<T>& a,
+			const std::unique_ptr<T>& b) {
+			return a ? _dtl::dup_unique(a) : _dtl::dup_unique(b);
+		}
+
+		static std::unique_ptr<T> orDo(
+			std::unique_ptr<T>&& a,
+			const std::unique_ptr<T>& b) {
+			return a ? std::move(a) : _dtl::dup_unique(b);
+		}
+
+		static std::unique_ptr<T> orDo(
+			const std::unique_ptr<T>& a,
+			std::unique_ptr<T>&& b) {
+			return a ? _dtl::dup_unique(a) : std::move(b);
+		}
+
+		static std::unique_ptr<T> orDo(
+			std::unique_ptr<T>&& a,
+			std::unique_ptr<T>&& b) {
+			return a ? std::move(a) : std::move(b);
+		}
+
+		static constexpr bool instance = true;
+	};
+
 
 	/**
 	 * Monoid instance for shared_ptr.
@@ -86,13 +165,8 @@ namespace ftl {
 			if(a && b)
 				return std::make_shared<T>(monoid<T>::append(*a,*b));
 
-			else if(a)
-				return std::move(a);
-
-			// b equals (Just x) or null,
-			// so just return b if nothing else.
-			else
-				return std::move(b);
+			else 
+				return std::move(a) | std::move(b);
 		}
 
 		/// \c shared_ptr is only a monoid instance if T is.
@@ -101,26 +175,6 @@ namespace ftl {
 		static_assert(instance, "std::shared_ptr<T> is not a monoid "
 		                        "instance if T is not." );
 	};
-
-	namespace _dtl {
-		/// In lue of std::make_unique.
-		template<
-			typename T, 
-			typename Ptr = std::unique_ptr<T>,
-			typename...Init>
-		Ptr make_unique(Init&&...init) {
-			return Ptr(new T(std::forward<Init>(init)...));
-		}
-
-		/// Because unique_ptr's copy constructor is deleted.
-		template<typename T>
-		std::unique_ptr<T> dup_unique(const std::unique_ptr<T>& ptr) {
-			return std::unique_ptr<T>(
-				ptr ? new T(*ptr) : (T*)nullptr
-			);
-		}
-			
-	}
 
 	/**
 	 * Monoid instance for unique_ptr.
@@ -132,8 +186,8 @@ namespace ftl {
 	template<typename T>
 	struct monoid<std::unique_ptr<T>> {
 		/// Simply creates an "empty" pointer.
-		static constexpr std::unique_ptr<T> id() noexcept {
-			return std::unique_ptr<T>();
+		static std::unique_ptr<T> id() {
+			return nullptr;
 		}
 
 	public:
@@ -153,12 +207,9 @@ namespace ftl {
 				const std::unique_ptr<T>& b) {
 			if(a && b) 
 				return _dtl::make_unique<T>(monoid<T>::append(*a, *b));
-			
-			else if(a) 
-				return _dtl::dup_unique(a);
 
 			else
-				return _dtl::dup_unique(b);
+				return a | b;
 		}
 
 		static std::unique_ptr<T> append(
@@ -169,11 +220,8 @@ namespace ftl {
 				return std::move(a);
 			}
 
-			if(b)
-				return _dtl::dup_unique(b);
-
-			// a either equals (Just x) or null, so just return a.
-			return std::move(a);
+			else
+				return std::move(a) | b;
 		}
 
 		static std::unique_ptr<T> append(
@@ -184,11 +232,8 @@ namespace ftl {
 				return std::move(b);
 			}
 
-			if(a)
-				return _dtl::dup_unique(a);
-
 			else
-				return std::move(b);
+				return a | std::move(b);
 		}
 
 		static std::unique_ptr<T> append(
@@ -199,11 +244,8 @@ namespace ftl {
 				return std::move(a);
 			}
 
-			if(a)
-				return std::move(a);
-
 			else
-				return std::move(b);
+				return std::move(a) | std::move(b);
 		}
 
 		/// \c unique_ptr is only a monoid instance if T is.
@@ -304,64 +346,6 @@ namespace ftl {
 				return f(std::move(*a));
 
 			return std::unique_ptr<U>();
-		}
-
-		static constexpr bool instance = true;
-	};
-
-	/** 
-	 * MonoidA instance for shared_ptr
-	 *
-	 * \ingroup memory
-	 */
-	template<typename T>
-	struct monoidA<std::shared_ptr<T>> {
-		static std::shared_ptr<T> fail() {
-			return nullptr;
-		}
-
-		static std::shared_ptr<T> orDo(
-			std::shared_ptr<T> a, 
-			std::shared_ptr<T> b) {
-			return a ? std::move(a) : std::move(b);
-		}
-	
-		static constexpr bool instance = true;
-	};
-
-	/**
-	 * MonoidA instance for unique_ptr
-	 *
-	 * \ingroup memory
-	 **/
-	template<typename T>
-	struct monoidA<std::unique_ptr<T>> {
-		static std::unique_ptr<T> fail() {
-			return nullptr;
-		}
-
-		static std::unique_ptr<T> orDo(
-			const std::unique_ptr<T>& a,
-			const std::unique_ptr<T>& b) {
-			return a ? _dtl::dup_unique(a) : _dtl::dup_unique(b);
-		}
-
-		static std::unique_ptr<T> orDo(
-			std::unique_ptr<T>&& a,
-			const std::unique_ptr<T>& b) {
-			return a ? std::move(a) : _dtl::dup_unique(b);
-		}
-
-		static std::unique_ptr<T> orDo(
-			const std::unique_ptr<T>& a,
-			std::unique_ptr<T>&& b) {
-			return a ? _dtl::dup_unique(a) : std::move(b);
-		}
-
-		static std::unique_ptr<T> orDo(
-			std::unique_ptr<T>&& a,
-			std::unique_ptr<T>&& b) {
-			return a ? std::move(a) : std::move(b);
 		}
 
 		static constexpr bool instance = true;
