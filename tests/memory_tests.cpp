@@ -248,7 +248,7 @@ test_set memory_tests{
 
 				return *(p >>= f) == .5f
 					// Test the rvalue overload.
-					&& *(std::unique_ptr<int>(new int(1)) >>= f) == .5f
+					&& *(std::unique_ptr<float>(new float(1)) >>= f) == .5f
 					&& (null >>= f) == nullptr;
 			})
 		),
