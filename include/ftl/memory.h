@@ -346,6 +346,24 @@ namespace ftl {
 			return a ? _dtl::dup_unique(a) : _dtl::dup_unique(b);
 		}
 
+		static std::unique_ptr<T> orDo(
+			std::unique_ptr<T>&& a,
+			const std::unique_ptr<T>& b) {
+			return a ? std::move(a) : _dtl::dup_unique(b);
+		}
+
+		static std::unique_ptr<T> orDo(
+			const std::unique_ptr<T>& a,
+			std::unique_ptr<T>&& b) {
+			return a ? _dtl::dup_unique(a) : std::move(b);
+		}
+
+		static std::unique_ptr<T> orDo(
+			std::unique_ptr<T>&& a,
+			std::unique_ptr<T>&& b) {
+			return a ? std::move(a) : std::move(b);
+		}
+
 		static constexpr bool instance = true;
 	};
 

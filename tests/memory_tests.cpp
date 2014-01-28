@@ -216,7 +216,9 @@ test_set memory_tests{
 					   (uptr() | uptr()) == nullptr
 					&& *(up | uptr()) == *up
 					&& *(uptr() | up) == *up
-					&& *(up | up2)    == *up;
+					&& *(up | up2)    == *up
+					// For the rvalue overloads:
+					&& *((uptr()|up)|(up|uptr())) == *up;
 				return shared_works and unique_works;
 			})
 		),
