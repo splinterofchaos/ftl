@@ -89,21 +89,16 @@ namespace ftl {
 		-> typename std::enable_if<
 				monoid<T>::instance,
 				std::shared_ptr<T>>::type {
-			if(a) {
-				if(b)
-					return std::make_shared<T>(monoid<T>::append(*a, *b));
+			if(a && b)
+				return std::make_shared<T>(monoid<T>::append(*a,*b));
 
-				else
-					return a;
-			}
+			else if(a)
+				return std::move(a);
 
-			else {
-				if(b)
-					return b;
-
-				else
-					return std::shared_ptr<T>();
-			}
+			// b equals (Just x) or null,
+			// so just return b if nothing else.
+			else
+				return std::move(b);
 		}
 
 		/// \c shared_ptr is only a monoid instance if T is.
@@ -129,9 +124,8 @@ namespace ftl {
 
 	private:
 		/// Create a valued pointer (in lue of std::make_unique).
-		template<typename...Init>
-		static constexpr std::unique_ptr<T> make(Init&&...init) {
-			return std::unique_ptr<T>(new T(std::forward<Init>(init)...));
+		static constexpr std::unique_ptr<T> make(T value) {
+			return std::unique_ptr<T>(new T(std::move(value)));
 		}
 
 		/// Duplicate a pointer. (unique_ptr's copy ctor is deleted.)
@@ -156,22 +150,10 @@ namespace ftl {
 		-> typename std::enable_if<
 				monoid<T>::instance,
 				std::unique_ptr<T>>::type {
-			if(a) {
-				if(b) {
-					return make(monoid<T>::append(*a, *b));
-				}
-
-				else
-					return dup(a);
-			}
-
-			else {
-				if(b)
-					return dup(b);
-
-				else
-					return id();
-			}
+			if(a && b) return make(monoid<T>::append(*a, *b));
+			else if(a) return dup(a);
+			else if(b) return dup(b);
+			return id();
 		}
 
 		static auto append(
@@ -180,20 +162,16 @@ namespace ftl {
 		-> typename std::enable_if<
 				monoid<T>::instance,
 				std::unique_ptr<T>>::type {
-			if(b) {
-				if(a) {
-					*a = monoid<T>::append(std::move(*a), *b);
-					return std::move(a);
-				}
-
-				else
-					return dup(b);
-			}
-
-			else {
-				// If a, return a, else id.
+			if(a && b) {
+				*a = monoid<T>::append(std::move(*a), *b);
 				return std::move(a);
 			}
+
+			if(b)
+				return dup(b);
+
+			// a either equals (Just x) or null, so just return a.
+			return std::move(a);
 		}
 
 		static auto append(
@@ -202,19 +180,16 @@ namespace ftl {
 		-> typename std::enable_if<
 				monoid<T>::instance,
 				std::unique_ptr<T>>::type {
-			if(a) {
-				if(b) {
-					*b = monoid<T>::append(*a, std::move(*b));
-					return std::move(b);
-				}
-				else
-					return dup(a);
+			if(a && b) {
+				*b = monoid<T>::append(*a, std::move(*b));
+				return std::move(b);
 			}
 
-			else {
-				// If b, return b, else id.
-				return std::move(b); 
-			}
+			if(a)
+				return dup(a);
+
+			else
+				return std::move(b);
 		}
 
 		static auto append(
@@ -223,17 +198,16 @@ namespace ftl {
 		-> typename std::enable_if<
 				monoid<T>::instance,
 				std::unique_ptr<T>>::type {
-			if(a) {
-				if(b) 
-					*a = monoid<T>::append(std::move(*a), std::move(*b));
-
+			if(a && b) {
+				*a = monoid<T>::append(std::move(*a), std::move(*b));
 				return std::move(a);
 			}
 
-			else {
-				// If b, return b, else id.
-				return std::move(b); 
-			}
+			if(a)
+				return std::move(a);
+
+			else
+				return std::move(b);
 		}
 
 		/// \c shared_ptr is only a monoid instance if T is.
