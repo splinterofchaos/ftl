@@ -102,6 +102,26 @@ namespace ftl {
 		                        "instance if T is not." );
 	};
 
+	namespace _dtl {
+		/// In lue of std::make_unique.
+		template<
+			typename T, 
+			typename Ptr = std::unique_ptr<T>,
+			typename...Init>
+		Ptr make_unique(Init&&...init) {
+			return Ptr(new T(std::forward<Init>(init)...));
+		}
+
+		/// Because unique_ptr's copy constructor is deleted.
+		template<typename T>
+		std::unique_ptr<T> dup_unique(const std::unique_ptr<T>& ptr) {
+			return std::unique_ptr<T>(
+				ptr ? new T(*ptr) : (T*)nullptr
+			);
+		}
+			
+	}
+
 	/**
 	 * Monoid instance for unique_ptr.
 	 *
@@ -116,16 +136,6 @@ namespace ftl {
 			return std::unique_ptr<T>();
 		}
 
-	private:
-		/// Create a valued pointer (in lue of std::make_unique).
-		static constexpr std::unique_ptr<T> make(T value) {
-			return std::unique_ptr<T>(new T(std::move(value)));
-		}
-
-		/// Duplicate a pointer. (unique_ptr's copy ctor is deleted.)
-		static constexpr std::unique_ptr<T> dup(const std::unique_ptr<T>& p) {
-			return make(*p);
-		}
 	public:
 
 		/**
@@ -141,10 +151,14 @@ namespace ftl {
 		static std::unique_ptr<T> append(
 				const std::unique_ptr<T>& a,
 				const std::unique_ptr<T>& b) {
-			if(a && b) return make(monoid<T>::append(*a, *b));
-			else if(a) return dup(a);
-			else if(b) return dup(b);
-			return id();
+			if(a && b) 
+				return _dtl::make_unique<T>(monoid<T>::append(*a, *b));
+			
+			else if(a) 
+				return _dtl::dup_unique(a);
+
+			else
+				return _dtl::dup_unique(b);
 		}
 
 		static std::unique_ptr<T> append(
@@ -156,7 +170,7 @@ namespace ftl {
 			}
 
 			if(b)
-				return dup(b);
+				return _dtl::dup_unique(b);
 
 			// a either equals (Just x) or null, so just return a.
 			return std::move(a);
@@ -171,7 +185,7 @@ namespace ftl {
 			}
 
 			if(a)
-				return dup(a);
+				return _dtl::dup_unique(a);
 
 			else
 				return std::move(b);
@@ -258,13 +272,13 @@ namespace ftl {
 	, deriving_apply<in_terms_of_bind<std::unique_ptr<T>>> {
 
 		static std::unique_ptr<T> pure(T&& a) {
-			return std::unique_ptr<T>(new T(std::move(a)));
+			return _dtl::make_unique<T>(std::move(a));
 		}
 
 		template<typename F, typename U = result_of<F(T)>>
 		static std::unique_ptr<U> map(F f, const std::unique_ptr<T>& p) {
 			if(p)
-				return std::unique_ptr<U>(new U(f(std::move(*p))));
+				return _dtl::make_unique<U>(f(*p));
 
 			else
 				return std::unique_ptr<U>();
@@ -314,22 +328,6 @@ namespace ftl {
 	
 		static constexpr bool instance = true;
 	};
-
-	namespace _dtl {
-		// In lue of std::make_unique.
-		template<typename T, typename...Init>
-		std::unique_ptr<T> make_unique(Init&&...init) {
-			return new T(std::forward<Init>(init)...);
-		}
-
-		template<typename T>
-		std::unique_ptr<T> dup_unique(const std::unique_ptr<T>& ptr) {
-			return std::unique_ptr<T>(
-				ptr ? new T(*ptr) : (T*)nullptr
-			);
-		}
-			
-	}
 
 	/**
 	 * MonoidA instance for unique_ptr
