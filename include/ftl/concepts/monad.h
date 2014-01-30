@@ -578,7 +578,7 @@ namespace ftl {
 		static M_<U> apply(Mf&& f, M&& m) {
 			return monad<Mf_>::bind(
 				std::forward<Mf>(f),
-				[&m] (F fn) {
+				[m=std::move(m)] (F fn) {
 					return monad<M>::bind(
 						std::move(m),
 						[&fn] (T t) { return monad<M_<U>>::pure(fn(std::move(t))); }
