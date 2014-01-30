@@ -31,14 +31,16 @@ test_set memory_tests{
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 				using sptr = std::shared_ptr<sum_monoid<int>>;
+				using uptr = std::unique_ptr<sum_monoid<int>>;
 
-				auto p = monoid<sptr>::id();
+				auto p1 = monoid<sptr>::id();
+				auto p2 = monoid<uptr>::id();
 
-				return p == nullptr;
+				return p1 == nullptr && p2 == nullptr;
 			})
 		),
 		std::make_tuple(
-			std::string("monoid::append"),
+			std::string("monoid::append (shared_ptr)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 				using sptr = std::shared_ptr<sum_monoid<int>>;
@@ -53,14 +55,33 @@ test_set memory_tests{
 			})
 		),
 		std::make_tuple(
+			std::string("monoid::append (unique_ptr)"),
+			std::function<bool()>([]() -> bool {
+				using namespace ftl;
+				using Sum = sum_monoid<int>;
+				using uptr = std::unique_ptr<Sum>;
+
+				auto p1 = monoid<uptr>::id();
+				auto p2 = uptr(new Sum(2));
+				auto p3 = uptr(new Sum(2));
+
+				// Parentheses used to force calling of every overload.
+				auto pr = ((p1 ^ p2) ^ p1) ^ (p1 ^ (p3 ^ p1));
+
+				return *pr == sum(4);
+			})
+		),
+		std::make_tuple(
 			std::string("functor::map"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
-				auto p = std::make_shared<int>(3);
-				auto pr = [](int x){ return -x; } % p;
+				auto f = [](int x){ return -x; };
 
-				return *pr == -3;
+				auto spr = f % std::make_shared<int>(3);
+				auto upr = f % std::unique_ptr<int>(new int(3));
+
+				return *spr == -3 && *upr == -3;
 			})
 		),
 		std::make_tuple(
@@ -68,13 +89,14 @@ test_set memory_tests{
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
-				auto p = applicative<std::shared_ptr<int>>::pure(2);
+				auto sp = applicative<std::shared_ptr<int>>::pure(2);
+				auto up = applicative<std::unique_ptr<int>>::pure(2);
 
-				return *p == 2;
+				return *sp == 2 && *up == 2;
 			})
 		),
 		std::make_tuple(
-			std::string("applicative::apply[*,*]"),
+			std::string("applicative::apply[*,*] (shared)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
@@ -91,7 +113,27 @@ test_set memory_tests{
 			})
 		),
 		std::make_tuple(
-			std::string("applicative::apply[nullptr,*]"),
+			std::string("applicative::apply[*,*] (unique)"),
+			std::function<bool()>([]() -> bool {
+				using namespace ftl;
+
+				auto f = function<int(int,int)>(
+					[](int x, int y){ return x-y; }
+				);
+
+				auto p1 = applicative<std::unique_ptr<int>>::pure(2);
+				auto p2 = applicative<std::unique_ptr<int>>::pure(3);
+
+				std::unique_ptr<int> null = nullptr;
+
+				return *(f % p1 * p2) == -1 
+					&& (f % p1 * null) == nullptr
+					&& (f % null * p2) == nullptr
+					&& (f % null * null) == nullptr;
+			})
+		),
+		std::make_tuple(
+			std::string("applicative::apply[nullptr,*] (shared)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
@@ -108,7 +150,7 @@ test_set memory_tests{
 			})
 		),
 		std::make_tuple(
-			std::string("applicative::apply[*,nullptr]"),
+			std::string("applicative::apply[*,nullptr] (shared)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
@@ -125,7 +167,7 @@ test_set memory_tests{
 			})
 		),
 		std::make_tuple(
-			std::string("applicative::apply[nullptr,nullptr]"),
+			std::string("applicative::apply[nullptr,nullptr] (shared)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
@@ -139,6 +181,45 @@ test_set memory_tests{
 				auto pr = f % p1 * p2;
 
 				return pr == nullptr;
+			})
+		),
+		std::make_tuple(
+			std::string("monoidA::fail"),
+			std::function<bool()>([]() -> bool {
+				using namespace ftl;
+				using sptr = std::shared_ptr<int>;
+				using uptr = std::unique_ptr<int>;
+
+				auto p1 = monoidA<sptr>::fail();
+				auto p2 = monoidA<uptr>::fail();
+
+				return p1 == nullptr && p2 == nullptr;
+			})
+		),
+		std::make_tuple(
+			std::string("monoidA::orDo"),
+			std::function<bool()>([]() -> bool {
+				using namespace ftl;
+				using sptr = std::shared_ptr<int>;
+				using uptr = std::unique_ptr<int>;
+
+				sptr sp(new int(1));
+				sptr sp2(new int(2));
+				uptr up(new int(1));
+				uptr up2(new int(2));
+				bool shared_works = 
+					   (sptr() | sptr()) == nullptr
+					&& (sp | sptr()) == sp
+					&& (sptr() | sp) == sp
+					&& (sp | sp2)    == sp;
+				bool unique_works = 
+					   (uptr() | uptr()) == nullptr
+					&& *(up | uptr()) == *up
+					&& *(uptr() | up) == *up
+					&& *(up | up2)    == *up
+					// For the rvalue overloads:
+					&& *((uptr()|up)|(up|uptr())) == *up;
+				return shared_works and unique_works;
 			})
 		),
 		std::make_tuple(
@@ -194,7 +275,24 @@ test_set memory_tests{
 			})
 		),
 		std::make_tuple(
-			std::string("foldable::foldl[&]"),
+			std::string("monad::bind[&,->&]"),
+			std::function<bool()>([]() -> bool {
+				using namespace ftl;
+
+				std::unique_ptr<int> null = nullptr;
+				std::unique_ptr<int> p(new int(1));
+				auto f = [](int x) { 
+					return std::unique_ptr<float>(new float(float(x)/2.f)); 
+				};
+
+				return *(p >>= f) == .5f
+					// Test the rvalue overload.
+					&& *(std::unique_ptr<float>(new float(1)) >>= f) == .5f
+					&& (null >>= f) == nullptr;
+			})
+		),
+		std::make_tuple(
+			std::string("foldable::foldl[&] (shared)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
@@ -204,7 +302,7 @@ test_set memory_tests{
 			})
 		),
 		std::make_tuple(
-			std::string("foldable::foldl[nullptr]"),
+			std::string("foldable::foldl[nullptr] (shared)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
@@ -214,7 +312,20 @@ test_set memory_tests{
 			})
 		),
 		std::make_tuple(
-			std::string("foldable::foldr[&]"),
+			std::string("foldable::foldl[&] (unique)"),
+			std::function<bool()>([]() -> bool {
+				using namespace ftl;
+
+				auto p = std::unique_ptr<int>(new int(2));
+				auto null = std::unique_ptr<int>();
+				auto f = [](int x, int y){ return x+y; };
+
+				return foldl(f, 1, p) == 3
+					&& foldl(f, 1, null) == 1;
+			})
+		),
+		std::make_tuple(
+			std::string("foldable::foldr[&] (shared)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
@@ -224,13 +335,26 @@ test_set memory_tests{
 			})
 		),
 		std::make_tuple(
-			std::string("foldable::foldr[nullptr]"),
+			std::string("foldable::foldr[nullptr] (shared)"),
 			std::function<bool()>([]() -> bool {
 				using namespace ftl;
 
 				std::shared_ptr<int> p{};
 
 				return foldr([](int x, int y){ return x+y; }, 1, p) == 1;
+			})
+		),
+		std::make_tuple(
+			std::string("foldable::foldr[&] (unique)"),
+			std::function<bool()>([]() -> bool {
+				using namespace ftl;
+
+				std::unique_ptr<int> p(new int(2));
+				std::unique_ptr<int> null{};
+				auto f = [](int x, int y){ return x+y; };
+
+				return foldr(f, 1, p) == 3
+					&& foldr(f, 1, null) == 1;
 			})
 		)
 	}

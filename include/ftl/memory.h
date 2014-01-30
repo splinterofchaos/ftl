@@ -30,6 +30,26 @@
 
 namespace ftl {
 
+	namespace _dtl {
+		/// In lue of std::make_unique.
+		template<
+			typename T, 
+			typename Ptr = std::unique_ptr<T>,
+			typename...Init>
+		Ptr make_unique(Init&&...init) {
+			return Ptr(new T(std::forward<Init>(init)...));
+		}
+
+		/// Because unique_ptr's copy constructor is deleted.
+		template<typename T>
+		std::unique_ptr<T> dup_unique(const std::unique_ptr<T>& ptr) {
+			return std::unique_ptr<T>(
+				ptr ? new T(*ptr) : (T*)nullptr
+			);
+		}
+			
+	}
+
 	/**
 	 * \defgroup memory Memory
 	 *
@@ -52,6 +72,65 @@ namespace ftl {
 	 * - \ref foldable
 	 */
 
+	/** 
+	 * MonoidA instance for shared_ptr
+	 *
+	 * \ingroup memory
+	 */
+	template<typename T>
+	struct monoidA<std::shared_ptr<T>> {
+		static std::shared_ptr<T> fail() {
+			return nullptr;
+		}
+
+		static std::shared_ptr<T> orDo(
+			std::shared_ptr<T> a, 
+			std::shared_ptr<T> b) {
+			return a ? std::move(a) : std::move(b);
+		}
+	
+		static constexpr bool instance = true;
+	};
+
+	/**
+	 * MonoidA instance for unique_ptr
+	 *
+	 * \ingroup memory
+	 **/
+	template<typename T>
+	struct monoidA<std::unique_ptr<T>> {
+		static std::unique_ptr<T> fail() {
+			return nullptr;
+		}
+
+		static std::unique_ptr<T> orDo(
+			const std::unique_ptr<T>& a,
+			const std::unique_ptr<T>& b) {
+			return a ? _dtl::dup_unique(a) : _dtl::dup_unique(b);
+		}
+
+		static std::unique_ptr<T> orDo(
+			std::unique_ptr<T>&& a,
+			const std::unique_ptr<T>& b) {
+			return a ? std::move(a) : _dtl::dup_unique(b);
+		}
+
+		static std::unique_ptr<T> orDo(
+			const std::unique_ptr<T>& a,
+			std::unique_ptr<T>&& b) {
+			return a ? _dtl::dup_unique(a) : std::move(b);
+		}
+
+		static std::unique_ptr<T> orDo(
+			std::unique_ptr<T>&& a,
+			std::unique_ptr<T>&& b) {
+			return a ? std::move(a) : std::move(b);
+		}
+
+		static constexpr bool instance = true;
+	};
+
+
 	/**
 	 * Monoid instance for shared_ptr.
 	 *
@@ -62,10 +141,7 @@ namespace ftl {
 	template<typename T>
 	struct monoid<std::shared_ptr<T>> {
 		/// Simply creates an "empty" pointer.
-		static constexpr auto id() noexcept
-		-> typename std::enable_if<
-				monoid<T>::instance,
-				std::shared_ptr<T>>::type {
+		static constexpr std::shared_ptr<T> id() noexcept {
 			return std::shared_ptr<T>();
 		}
 
@@ -83,31 +159,100 @@ namespace ftl {
 		 * \c make_shared is invoked to create a new object that is the result
 		 * of applying the monoid operation on the two values.
 		 */
-		static auto append(
+		static std::shared_ptr<T> append(
 				std::shared_ptr<T> a,
-				std::shared_ptr<T> b)
-		-> typename std::enable_if<
-				monoid<T>::instance,
-				std::shared_ptr<T>>::type {
-			if(a) {
-				if(b)
-					return std::make_shared<T>(monoid<T>::append(*a, *b));
+				std::shared_ptr<T> b) {
+			if(a && b)
+				return std::make_shared<T>(monoid<T>::append(*a,*b));
 
-				else
-					return a;
-			}
-
-			else {
-				if(b)
-					return b;
-
-				else
-					return std::shared_ptr<T>();
-			}
+			else 
+				return std::move(a) | std::move(b);
 		}
 
 		/// \c shared_ptr is only a monoid instance if T is.
 		static constexpr bool instance = monoid<T>::instance;
+
+		static_assert(instance, "std::shared_ptr<T> is not a monoid "
+		                        "instance if T is not." );
+	};
+
+	/**
+	 * Monoid instance for unique_ptr.
+	 *
+	 * Much like maybe, any shared_ptr that wraps a monoid is also a monoid.
+	 *
+	 * \ingroup memory
+	 */
+	template<typename T>
+	struct monoid<std::unique_ptr<T>> {
+		/// Simply creates an "empty" pointer.
+		static std::unique_ptr<T> id() {
+			return nullptr;
+		}
+
+	public:
+
+		/**
+		 * Unwraps the values and applies their monoid op.
+		 *
+		 * If neither of the pointers point anywhere, another "empty" pointer
+		 * is returned.
+		 *
+		 * If both the pointers point to some object, then a new pointer with
+		 * the result of the monoid operation is created, unless a or b is an
+		 * rvalue.
+		 */		
+		static std::unique_ptr<T> append(
+				const std::unique_ptr<T>& a,
+				const std::unique_ptr<T>& b) {
+			if(a && b) 
+				return _dtl::make_unique<T>(monoid<T>::append(*a, *b));
+
+			else
+				return a | b;
+		}
+
+		static std::unique_ptr<T> append(
+				std::unique_ptr<T>&& a,
+				const std::unique_ptr<T>& b) {
+			if(a && b) {
+				*a = monoid<T>::append(std::move(*a), *b);
+				return std::move(a);
+			}
+
+			else
+				return std::move(a) | b;
+		}
+
+		static std::unique_ptr<T> append(
+				const std::unique_ptr<T>& a,
+				std::unique_ptr<T>&& b) {
+			if(a && b) {
+				*b = monoid<T>::append(*a, std::move(*b));
+				return std::move(b);
+			}
+
+			else
+				return a | std::move(b);
+		}
+
+		static std::unique_ptr<T> append(
+				std::unique_ptr<T>&& a,
+				std::unique_ptr<T>&& b) {
+			if(a && b) {
+				*a = monoid<T>::append(std::move(*a), std::move(*b));
+				return std::move(a);
+			}
+
+			else
+				return std::move(a) | std::move(b);
+		}
+
+		/// \c unique_ptr is only a monoid instance if T is.
+		static constexpr bool instance = monoid<T>::instance;
+
+		static_assert(instance, "std::unique_ptr<T> is not a monoid "
+		                        "instance if T is not.");
 	};
 
 	/**
@@ -147,6 +292,65 @@ namespace ftl {
 		static constexpr bool instance = true;
 	};
 
+	// The default Rebind will not update the second template parameter,
+	// std::default_delete, for std::unique_ptr correctly.
+	template<typename T>
+	struct parametric_type_traits<std::unique_ptr<T>> {
+
+		using value_type = T;
+
+		template<typename U>
+		using rebind = std::unique_ptr<U>;
+	};
+
+	/**
+	 * Monad instance of unique_ptr.
+	 *
+	 * \ingroup memory
+	 */
+	template<typename T>
+	struct monad<std::unique_ptr<T>>
+	: deriving_join<in_terms_of_bind<std::unique_ptr<T>>> 
+	, deriving_apply<in_terms_of_bind<std::unique_ptr<T>>> {
+
+		static std::unique_ptr<T> pure(T&& a) {
+			return _dtl::make_unique<T>(std::move(a));
+		}
+
+		template<typename F, typename U = result_of<F(T)>>
+		static std::unique_ptr<U> map(F f, const std::unique_ptr<T>& p) {
+			if(p)
+				return _dtl::make_unique<U>(f(*p));
+
+			else
+				return std::unique_ptr<U>();
+		}
+
+		template<
+			typename F, 
+			typename U = result_of<F(T)>,
+			typename = Requires<std::is_same<T,U>::value>>
+		static std::unique_ptr<U> map(F f, std::unique_ptr<T>&& p) {
+			if(p)
+				*p = f(std::move(*p));
+			
+			return std::move(p);
+		}
+
+		template<
+				typename F,
+				typename U = typename result_of<F(T)>::element_type
+		>
+		static std::unique_ptr<U> bind(const std::unique_ptr<T>& a, F f) {
+			if(a)
+				return f(std::move(*a));
+
+			return std::unique_ptr<U>();
+		}
+
+		static constexpr bool instance = true;
+	};
+
 	/**
 	 * Foldable instance for shared_ptr
 	 *
@@ -174,6 +378,43 @@ namespace ftl {
 				typename = Requires<std::is_same<U, result_of<Fn(T,U)>>::value>
 				>
 		static U foldr(Fn&& fn, U&& z, std::shared_ptr<T> p) {
+			if(p) {
+				return fn(std::forward<U>(z), *p);
+			}
+
+			return z;
+		}
+
+		static constexpr bool instance = true;
+	};
+
+	/**
+	 * Foldable instance for unique_ptr
+	 *
+	 * \ingroup memory
+	 */
+	template<typename T>
+	struct foldable<std::unique_ptr<T>>
+	: deriving_foldMap<std::unique_ptr<T>>, deriving_fold<std::unique_ptr<T>> {
+		template<
+				typename Fn,
+				typename U,
+				typename = Requires<std::is_same<U, result_of<Fn(U,T)>>::value>
+		>
+		static U foldl(Fn&& fn, U&& z, const std::unique_ptr<T>& p) {
+			if(p) {
+				return fn(std::forward<U>(z), *p);
+			}
+
+			return z;
+		}
+
+		template<
+				typename Fn,
+				typename U,
+				typename = Requires<std::is_same<U, result_of<Fn(T,U)>>::value>
+				>
+		static U foldr(Fn&& fn, U&& z, const std::unique_ptr<T>& p) {
 			if(p) {
 				return fn(std::forward<U>(z), *p);
 			}

@@ -557,13 +557,31 @@ namespace ftl {
 				typename F = Value_type<Mf_>,
 				typename U = result_of<F(T)>
 		>
-		static M_<U> apply(Mf&& f, M m) {
+		static M_<U> apply(Mf&& f, const M& m) {
 			return monad<Mf_>::bind(
 				std::forward<Mf>(f),
-				[m] (F fn) {
+				[&m] (F fn) {
 					return monad<M>::bind(
 						m,
-						[fn] (const T& t) { return monad<M_<U>>::pure(fn(t)); }
+						[&fn] (const T& t) { return monad<M_<U>>::pure(fn(t)); }
+					);
+				}
+			);
+		}
+
+		template<
+				typename Mf,
+				typename Mf_ = plain_type<Mf>,
+				typename F = Value_type<Mf_>,
+				typename U = result_of<F(T)>
+		>
+		static M_<U> apply(Mf&& f, M&& m) {
+			return monad<Mf_>::bind(
+				std::forward<Mf>(f),
+				[&m] (F fn) {
+					return monad<M>::bind(
+						std::move(m),
+						[&fn] (T t) { return monad<M_<U>>::pure(fn(std::move(t))); }
 					);
 				}
 			);
