@@ -1,4 +1,4 @@
-GLOBAL_CXXFLAGS=-std=c++11 -I../include/ -Wall -Wextra
+GLOBAL_CXXFLAGS=-std=c++1y -I../include/ -Wall -Wextra
 GLOBAL_LDFLAGS=-pthread
 OLVL=-O3
 CXX:=$(shell echo $$CXX)
