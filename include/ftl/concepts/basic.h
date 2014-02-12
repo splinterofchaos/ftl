@@ -26,6 +26,10 @@
 #include <type_traits>
 
 namespace ftl {
+	#define FTL_cpp1y_CLANG (__cplusplus >= 201305)
+	#define FTL_cpp1y_GCC   (__cplusplus >= 201300)
+	#define FTL_HAS_VARIABLE_TEMPLATES FTL_cpp1y_CLANG
+
 	/**
 	 * \defgroup concepts_basic Basic Concepts
 	 *

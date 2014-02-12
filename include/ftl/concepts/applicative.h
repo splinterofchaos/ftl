@@ -297,6 +297,12 @@ namespace ftl {
 		}
 	};
 
+#if FTL_HAS_VARIABLE_TEMPLATES
+	template<typename F>
+	aPure<F> aPure_v{};
+#endif
+
+
 	// TODO: C++14: template variable instance of aPure.
 
 #ifndef DOCUMENTATION_GENERATOR

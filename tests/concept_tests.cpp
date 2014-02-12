@@ -89,6 +89,18 @@ test_set concept_tests{
 					&& aapply(mf)(value(2)) == value(3);
 			})
 		),
+#if FTL_HAS_VARIABLE_TEMPLATES
+		std::make_tuple(
+			std::string("Applicative: aPure"),
+			std::function<bool()>([]() -> bool {
+				using namespace ftl;
+
+				auto v = aPure_v<std::vector<int>>(1);
+
+				return v == std::vector<int>{1};
+			})
+		),
+#endif
 		std::make_tuple(
 			std::string("Monad: curried mbind"),
 			std::function<bool()>([]() -> bool {
