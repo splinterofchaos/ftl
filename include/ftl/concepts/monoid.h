@@ -143,6 +143,11 @@ namespace ftl {
 		return monoid<M>::instance;
 	}
 
+#if FTL_HAS_VARIABLE_TEMPLATES
+	template<typename M>
+	M mempty_v = monoid<M>::id();
+#endif
+
 	/**
 	 * Convenience operator to ease use of append.
 	 *

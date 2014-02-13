@@ -41,6 +41,19 @@ test_set concept_tests{
 				return m3 == value(sum(4));
 			})
 		),
+#if FTL_HAS_VARIABLE_TEMPLATES
+		std::make_tuple(
+			std::string("Monoid: curried mappend"),
+			std::function<bool()>([]() -> bool {
+				using namespace ftl;
+
+				using M = maybe<sum_monoid<int>>;
+				M m = value(sum(2));
+
+				return (m ^ mempty_v<M>) == m;
+			})
+		),
+#endif
 		std::make_tuple(
 			std::string("Functor: curried fmap"),
 			std::function<bool()>([]() -> bool {
