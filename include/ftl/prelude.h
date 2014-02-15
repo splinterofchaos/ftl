@@ -975,7 +975,7 @@ namespace ftl {
 		struct forwarder : public F {
 
 			template<typename...Init>
-			forwarder(Init...init) : F(init...) {}
+			constexpr forwarder(Init...init) : F(init...) {}
 
 			using F::operator();
 		};
@@ -985,9 +985,9 @@ namespace ftl {
 			using F = R(*)(Args...);
 			F f;
 
-			forwarder(F f) : f(f) {}
+			constexpr forwarder(F f) : f(f) {}
 
-			R operator()(Args...args) {
+			constexpr R operator()(Args...args) const {
 				return f(std::forward<Args>(args)...);
 			}
 		};
@@ -999,10 +999,14 @@ namespace ftl {
 			using F = Ret (Obj::*)(Args...);
 			F f;
 
-			forwarder(F f) : f(f) {}
+			constexpr forwarder(F f) : f(f) {}
 
 			constexpr Ret operator()(Obj& o, Args...args) const {
 				return (o.*f)(std::forward<Args>(args)...);
+			}
+
+			constexpr Ret operator()(Obj&& o, Args...args) const {
+				return (std::move(o).*f)(std::forward<Args>(args)...);
 			}
 		};
 
@@ -1011,9 +1015,9 @@ namespace ftl {
 			using F = Ret (Obj::*)(Args...);
 			F f;
 
-			forwarder(F f) : f(f) {}
+			constexpr forwarder(F f) : f(f) {}
 
-			Ret operator()(const Obj& o, Args...args) {
+			constexpr Ret operator()(const Obj& o, Args...args) const {
 				return (o.*f)(std::forward<Args>(args)...);
 			}
 		};
@@ -1024,7 +1028,7 @@ namespace ftl {
 			using F = Mem Obj::*;
 			F f;
 
-			forwarder(F f) : f(f) {}
+			constexpr forwarder(F f) : f(f) {}
 
 			template<typename...Args>
 			constexpr auto operator()(const Obj& o, Args&&...args) const
@@ -1036,6 +1040,12 @@ namespace ftl {
 			constexpr auto operator()(Obj& o, Args&&...args) const
 			-> decltype((o.*f)(std::forward<Args>(args)...)) {
 				return (o.*f)(std::forward<Args>(args)...);
+			}
+
+			template<typename...Args>
+			constexpr auto operator()(Obj&& o, Args&&...args) const
+			-> decltype((std::move(o).*f)(std::forward<Args>(args)...)) {
+				return (std::move(o).*f)(std::forward<Args>(args)...);
 			}
 		};
 
