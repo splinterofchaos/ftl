@@ -167,6 +167,29 @@ test_set prelude_tests{
 
 				return o(0) == 1 && o("abc") == "bc";
 			})
+		),
+		std::make_tuple(
+			std::string("overload[R(Obj::*)(Args)...]"),
+			std::function<bool()>([]() -> bool {
+				enum Results { ONE, TWO, INT, CHAR };
+
+				struct A { 
+					Results f(){ return ONE; } 
+					Results g(int){ return INT; }
+					Results h(char){ return CHAR; }
+				} a{};
+
+				struct B { 
+					struct { Results operator()(){ return TWO; } } f{};
+				} b{};
+
+				auto of = ftl::overload(&A::f, &A::g, &A::h, &B::f);
+
+				return of(a) == ONE 
+					&& of(b) == TWO
+					&& of(a,1) == INT
+ 					&& of(a,'c') == CHAR;
+			})
 		)
 	}
 };

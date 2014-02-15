@@ -970,6 +970,7 @@ namespace ftl {
 
 	namespace _dtl {
 		// A function object that simply forwards its arguments.
+		// Required for overload2, defined below.
 		template<typename F>
 		struct forwarder : public F {
 
@@ -991,6 +992,54 @@ namespace ftl {
 			}
 		};
 
+		// Forwarder for member functions.
+		// Required because the return of std::mem_fn may not be SFINAE.
+		template<typename Ret, typename Obj, typename...Args>
+		struct forwarder<Ret (Obj::*)(Args...)> {
+			using F = Ret (Obj::*)(Args...);
+			F f;
+
+			forwarder(F f) : f(f) {}
+
+			constexpr Ret operator()(Obj& o, Args...args) const {
+				return (o.*f)(std::forward<Args>(args)...);
+			}
+		};
+
+		template<typename Ret, typename Obj, typename...Args>
+		struct forwarder<Ret (Obj::*)(Args...) const> {
+			using F = Ret (Obj::*)(Args...);
+			F f;
+
+			forwarder(F f) : f(f) {}
+
+			Ret operator()(const Obj& o, Args...args) {
+				return (o.*f)(std::forward<Args>(args)...);
+			}
+		};
+
+		// Forwarder for member function objects.
+		template<typename Mem, typename Obj>
+		struct forwarder<Mem Obj::*> {
+			using F = Mem Obj::*;
+			F f;
+
+			forwarder(F f) : f(f) {}
+
+			template<typename...Args>
+			constexpr auto operator()(const Obj& o, Args&&...args) const
+			-> decltype((o.*f)(std::forward<Args>(args)...)) {
+				return (o.*f)(std::forward<Args>(args)...);
+			}
+
+			template<typename...Args>
+			constexpr auto operator()(Obj& o, Args&&...args) const
+			-> decltype((o.*f)(std::forward<Args>(args)...)) {
+				return (o.*f)(std::forward<Args>(args)...);
+			}
+		};
+
+		// SFINAE-safe function overloader.
 		// Inspired by http://cpp-next.com/archive/2012/09/unifying-generic-functions-and-function-objects/
 		template<typename _F, typename _G>
 		struct overload2 
