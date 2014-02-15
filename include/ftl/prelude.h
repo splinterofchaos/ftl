@@ -1080,14 +1080,14 @@ namespace ftl {
 		using Result2 = _dtl::overload2<F,G>;
 
 		template<typename F, typename G>
-		Result2<F,G> operator()(F f, G g) const {
+		constexpr Result2<F,G> operator()(F f, G g) const {
 			return {std::move(f), std::move(g)};
 		}
 
 		template<
 			typename F, typename G, typename...H, 
 			typename O1=Result2<F,G>>
-		auto operator()(F f, G g, H...h) const
+		constexpr auto operator()(F f, G g, H...h) const
 		-> decltype((*this)(std::declval<O1>(),std::move(h)...)) {
 			return (*this)(
 				(*this)(std::move(f), std::move(g)),
