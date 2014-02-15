@@ -1074,6 +1074,7 @@ namespace ftl {
 		}
 	}
 	
+#ifndef DOCUMENTATION_GENERATOR
 	constexpr struct _overload {
 		template<typename F, typename G>
 		using Result2 = _dtl::overload2<F,G>;
@@ -1094,6 +1095,32 @@ namespace ftl {
 			);
 		}
 	} overload{};
+#else
+	struct ImplementationDefined {
+	}
+	/**
+	 * Function object that produces an overload set.
+	 *
+	 * \code
+	 *   (A->B,T->U) -> (A or B -> T or U)
+	 * \code
+	 *
+	 * \par Examples
+	 *
+	 * Overloading the various opengl functions into one.
+	 * \code
+	 * 	 auto vertex = overload( glVertex2f, glVertex3f, glVertex2i, ... )
+	 * \endcode
+	 *
+	 * Creating a `size` function that works for char*'s and strings.
+	 * \code
+	 *   auto size = overload( strlen, &std::string::size );
+	 * \endcode
+	 *
+	 * \ingroup prelude
+	 */
+	overload{};
+#endif
 }
 #endif
 
